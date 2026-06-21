@@ -16,31 +16,32 @@ import woowacourse.payment.client.dto.TossPaymentResponse;
 @Component
 public class TossPaymentGateway implements PaymentGateway {
 
-  private final RestClient tossRestClient;
+    private final RestClient tossRestClient;
 
-  public TossPaymentGateway(RestClient tossRestClient) {
-    this.tossRestClient = tossRestClient;
-  }
+    public TossPaymentGateway(RestClient tossRestClient) {
+        this.tossRestClient = tossRestClient;
+    }
 
-  @Override
-  public PaymentResult confirm(PaymentConfirmation confirmation) {
-    var request = new ConfirmRequest(
-        confirmation.paymentKey(), confirmation.orderId(), confirmation.amount());
-    var response = tossRestClient.post()
-        .uri("/v1/payments/confirm")
-        .contentType(MediaType.APPLICATION_JSON)
-        // TODO: 재시도 시 중복 결제를 막도록 Idempotency-Key 헤더를 싣는다.
-        //  키는 재시도 간 동일한 값이어야 한다(주문 식별자 등). 예: .header("Idempotency-Key", confirmation.orderId())
-        //  지금은 키가 없어, 타임아웃으로 끊긴 뒤 재시도하면 서버가 매번 새 결제로 처리한다.
-        .body(request)
-        .retrieve()
-        .body(TossPaymentResponse.class);
-    return new PaymentResult(
-        response.paymentKey(),
-        response.orderId(),
-        PaymentStatus.from(response.status()),
-        response.totalAmount()
-    );
-  }
+    @Override
+    public PaymentResult confirm(PaymentConfirmation confirmation) {
+        var request = new ConfirmRequest(
+                confirmation.paymentKey(), confirmation.orderId(), confirmation.amount());
+        var response = tossRestClient.post()
+                .uri("/v1/payments/confirm")
+                .contentType(MediaType.APPLICATION_JSON)
+                // TODO: 재시도 시 중복 결제를 막도록 Idempotency-Key 헤더를 싣는다.
+                //  키는 재시도 간 동일한 값이어야 한다(주문 식별자 등). 예: .header("Idempotency-Key", confirmation.orderId())
+                //  지금은 키가 없어, 타임아웃으로 끊긴 뒤 재시도하면 서버가 매번 새 결제로 처리한다.
+                .header("Idempotency-Key", confirmation.orderId())
+                .body(request)
+                .retrieve()
+                .body(TossPaymentResponse.class);
+        return new PaymentResult(
+                response.paymentKey(),
+                response.orderId(),
+                PaymentStatus.from(response.status()),
+                response.totalAmount()
+        );
+    }
 
 }
